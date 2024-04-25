@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from shapely.geometry import Point
 from sklearn.cluster import KMeans
+import folium
+from folium.plugins import MarkerCluster
 
 # 读取execl数据
 data = pd.read_excel('附件二：会员信息数据.xlsx')
@@ -24,9 +26,24 @@ gdf = gpd.GeoDataFrame(data, geometry=data.apply(lambda row: Point(float(row.经
 kmeans = KMeans(n_clusters=3, init='k-means++')
 gdf['聚类结果'] = kmeans.fit_predict(gdf[['经度', '纬度']])
 
-#绘图
-fig, ax = plt.subplots()
-gdf.plot(column="聚类结果",categorical=True, legend=True, ax=ax,zorder=5)
-ax.set_xlabel('Longitude')
-ax.set_ylabel('Latitude')
-plt.show()
+# 创建地图
+m = folium.Map(location=[gdf['纬度'].mean(), gdf['经度'].mean()], zoom_start=7)  # 假设gdf['纬度'].mean()和gdf['经度'].mean()分别是纬度和经度的平均值
+
+folium.TileLayer(tiles='http://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+                 attr="&copy; <a href=http://ditu.amap.com/>高德地图</a>",
+                 min_zoom=0,
+                 max_zoom=19,
+                 control=True,
+                 show=True,
+                 overlay=False,
+                 name=1
+                 ).add_to(m)
+# 添加聚类点
+marker_cluster = MarkerCluster().add_to(m)
+for _, row in gdf.iterrows():
+    folium.Marker(location=[row['经度'], row['纬度']],
+                  popup='Cluster: {}'.format(row['聚类结果']),
+                  icon=folium.Icon(color='green' if row['聚类结果'] == 0 else 'blue' if row['聚类结果'] == 1 else 'red')).add_to(marker_cluster)
+
+# 显示地图
+m.save('map.html')  # 保存地图到HTML文件中
