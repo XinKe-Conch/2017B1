@@ -27,7 +27,7 @@ kmeans = KMeans(n_clusters=3, init='k-means++')
 gdf['聚类结果'] = kmeans.fit_predict(gdf[['经度', '纬度']])
 
 # 创建地图
-m = folium.Map(location=[gdf['纬度'].mean(), gdf['经度'].mean()], zoom_start=7)  # 假设gdf['纬度'].mean()和gdf['经度'].mean()分别是纬度和经度的平均值
+m = folium.Map(location=[gdf['经度'].mean(), gdf['纬度'].mean()], zoom_start=7)  # 假设gdf['纬度'].mean()和gdf['经度'].mean()分别是纬度和经度的平均值
 
 folium.TileLayer(tiles='http://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
                  attr="&copy; <a href=http://ditu.amap.com/>高德地图</a>",
@@ -39,11 +39,16 @@ folium.TileLayer(tiles='http://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&siz
                  name=1
                  ).add_to(m)
 # 添加聚类点
-marker_cluster = MarkerCluster().add_to(m)
 for _, row in gdf.iterrows():
-    folium.Marker(location=[row['经度'], row['纬度']],
-                  popup='Cluster: {}'.format(row['聚类结果']),
-                  icon=folium.Icon(color='green' if row['聚类结果'] == 0 else 'blue' if row['聚类结果'] == 1 else 'red')).add_to(marker_cluster)
+    folium.CircleMarker(
+        location=[row['经度'], row['纬度']],
+        radius=1,
+        popup='Cluster: {}'.format(row['聚类结果']),
+        color='red' if row['聚类结果'] == 0 else 'blue' if row['聚类结果'] == 1 else 'green',
+        fill=True,
+        fill_color='red' if row['聚类结果'] == 0 else 'blue' if row['聚类结果'] == 1 else 'green',
+        fill_opacity=1
+    ).add_to(m)
 
 # 显示地图
 m.save('map.html')  # 保存地图到HTML文件中
