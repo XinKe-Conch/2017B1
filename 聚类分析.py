@@ -68,4 +68,4 @@ for i, centroid in enumerate(centroids):
     ).add_to(m)
 
 # 显示地图
-m.save('附件二：会员信息数据.xlsx的处理可视化.html')  # 保存地图到HTML文件中
+m.save('会员信息数据的处理可视化.html')  # 保存地图到HTML文件中
