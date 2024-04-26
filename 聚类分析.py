@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point
 from sklearn.cluster import KMeans
 import folium
+import numpy as np
 from folium.plugins import MarkerCluster
 
 # 读取execl数据
@@ -31,6 +32,15 @@ centroids = kmeans.cluster_centers_
 print("聚类中心的坐标是：")
 print(centroids)
 
+from sklearn.metrics.pairwise import euclidean_distances
+
+# 计算每个点到聚类中心的距离
+gdf['与聚类中心的距离'] = gdf.apply(lambda row: euclidean_distances([centroids[row['聚类结果']]], [[row['纬度'], row['经度']]])[0][0], axis=1)
+max_dist_points = gdf.loc[gdf.groupby('聚类结果')['与聚类中心的距离'].idxmax()]
+max_dist_dict = gdf.groupby('聚类结果')['与聚类中心的距离'].max().to_dict()
+gdf['偏僻程度'] = gdf.apply(lambda row: row['与聚类中心的距离'] / max_dist_dict[row['聚类结果']], axis=1)
+
+print(max_dist_points.head())
 # 创建地图
 m = folium.Map(location=[gdf['纬度'].mean(), gdf['经度'].mean()], zoom_start=7)
 
@@ -56,6 +66,7 @@ for _, row in gdf.iterrows():
         fill_opacity=1
     ).add_to(m)
 
+
 # 将聚类中心添加到地图上
 for i, centroid in enumerate(centroids):
     folium.CircleMarker(
@@ -69,3 +80,4 @@ for i, centroid in enumerate(centroids):
 
 # 显示地图
 m.save('会员信息数据的处理可视化.html')  # 保存地图到HTML文件中
+gdf.to_excel("处理附件二.xlsx", index=False)
