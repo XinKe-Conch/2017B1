@@ -18,6 +18,7 @@ IQR = Q3 - Q1
 lower_bound = Q1 - 1.5 * IQR
 upper_bound = Q3 + 1.5 * IQR
 
+
 # 筛选没有异常值的数据（根据经度和纬度）
 data = data[(data['经度'] >= lower_bound['经度']) & (data['经度'] <= upper_bound['经度']) &
             (data['纬度'] >= lower_bound['纬度']) & (data['纬度'] <= upper_bound['纬度'])]
@@ -40,7 +41,6 @@ max_dist_points = gdf.loc[gdf.groupby('聚类结果')['与聚类中心的距离'
 max_dist_dict = gdf.groupby('聚类结果')['与聚类中心的距离'].max().to_dict()
 gdf['偏僻程度'] = gdf.apply(lambda row: row['与聚类中心的距离'] / max_dist_dict[row['聚类结果']], axis=1)
 
-print(max_dist_points.head())
 # 创建地图
 m = folium.Map(location=[gdf['纬度'].mean(), gdf['经度'].mean()], zoom_start=7)
 
@@ -78,6 +78,37 @@ for i, centroid in enumerate(centroids):
         fill_color='black'
     ).add_to(m)
 
-# 显示地图
-m.save('会员信息数据的处理可视化.html')  # 保存地图到HTML文件中
+# 读取附件一：已结束项目任务数据
+task_data = pd.read_excel('附件一：已结束项目任务数据.xlsx')
+task_gdf = gpd.GeoDataFrame(task_data, geometry=gpd.points_from_xy(task_data['任务gps经度'], task_data['任务gps 纬度']))
+
+# 设置1.5km的缓冲半径（用经纬度单位表示）
+buffer_radius_in_degrees = 1.5 / 111  # 球面上每度大约等于111km，这是一个经验值
+
+# 计算每个任务点的1.5km缓冲区内的会员数量
+def calculate_members_within_radius(task_geometry, members_gdf, buffer_radius):
+    # 创建任务点的缓冲区
+    task_buffer = task_geometry.buffer(buffer_radius)
+    # 计算在缓冲区内的会员数量
+    members_within_buffer = members_gdf[members_gdf.within(task_buffer)]
+    return len(members_within_buffer)
+
+# 计算每个任务点周围1.5km范围内的会员数量，并添加到 task_gdf 中
+task_gdf['会员数量'] = task_gdf.geometry.apply(calculate_members_within_radius, args=(gdf, buffer_radius_in_degrees))
+
+# 计算每个任务点的1.5km缓冲区内的其他任务点数量
+def calculate_tasks_within_radius(task_row, task_gdf, buffer_radius):
+    # 创建任务点的缓冲区
+    task_buffer = task_row.geometry.buffer(buffer_radius)
+    # 计算在缓冲区内的其他任务点数量（排除自身）
+    tasks_within_buffer = task_gdf[task_gdf.geometry.within(task_buffer) & (task_gdf['任务号码'] != task_row['任务号码'])]
+    return len(tasks_within_buffer)
+
+# 为task_gdf中的每个任务行调用calculate_tasks_within_radius函数
+task_gdf['周围任务数量'] = task_gdf.apply(calculate_tasks_within_radius, axis=1, task_gdf=task_gdf, buffer_radius=buffer_radius_in_degrees)
+
+# 打印任务点及其相应1.5km内的会员数量和周围任务数量
+print(task_gdf[['任务号码', '会员数量', '周围任务数量']])
+task_gdf.to_excel("输出附件一.xlsx", index=False)
 gdf.to_excel("处理附件二.xlsx", index=False)
+print(gdf)
